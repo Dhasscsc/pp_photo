@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="ta">
+<head>
+    <meta charset="UTF-8">
+    <title>Dhass Passport Pro Studio</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.css" rel="stylesheet">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f6f9;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+        }
+        h2 {
+            text-align: center;
+            color: #2c3e50;
+            margin-bottom: 20px;
+        }
+        .main-container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .editor-section, .preview-section {
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .controls-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+        }
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        label {
+            font-weight: bold;
+            font-size: 14px;
+        }
+        .btn {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.2s;
+        }
+        .btn:hover { background-color: #2980b9; }
+        .btn-success { background-color: #2ecc71; }
+        .btn-success:hover { background-color: #27ae60; }
+        .btn-danger { background-color: #e74c3c; }
+        .btn-danger:hover { background-color: #c0392b; }
+        
+        /* Cropper Area */
+        .crop-wrapper {
+            max-width: 100%;
+            height: 400px;
+            background: #e5e5e5;
+            margin-bottom: 15px;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        #image-to-crop { max-width: 100%; max-height: 100%; }
+
+        /* Canvas Layout Preview */
+        .canvas-scroll-box {
+            overflow-x: auto;
+            text-align: center;
+            padding: 10px;
+            background: #e9ecef;
+            border-radius: 6px;
+        }
+        canvas {
+            background: #fff;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+            max-width: 100%;
+            height: auto;
+        }
+        
+        .template-buttons {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 15px;
+        }
+
+        /* Print Optimization - உண்மையான 6x4 இன்ச் அளவில் அச்சிட */
+        @page {
+            size: 6in 4in;
+            margin: 0;
+        }
+        @media print {
+            body * { visibility: hidden; }
+            .preview-section, .preview-section * { visibility: visible; }
+            .preview-section {
+                position: absolute;
+                left: 0;
+                top: 0;
+                padding: 0;
+                margin: 0;
+                box-shadow: none;
+                background: #fff;
+            }
+            .preview-section h3,
+            .preview-section .btn,
+            .preview-section .no-print { display: none !important; }
+            .canvas-scroll-box {
+                padding: 0;
+                background: #fff;
+                overflow: visible;
+            }
+            canvas {
+                border: none;
+                width: 6in;
+                height: 4in;
+                max-width: none;
+                image-rendering: -webkit-optimize-contrast;
+                image-rendering: crisp-edges;
+            }
+        }
+    </style>
+
+</head>
+<body>
+
+    <h2>Dhass Passport Pro Studio</h2>
+
+    <div class="main-container">
+        <div class="editor-section">
+            <h3 style="margin-top:0;">1. போட்டோ எடிட்டர் (Photo Editor)</h3>
+            
+            <div class="controls-grid">
+                <div class="control-group">
+                    <label>போட்டோ தேர்வு செய்யவும்:</label>
+                    <input type="file" id="uploadFile" accept="image/*">
+                </div>
+                <div class="control-group">
+                    <label>படம் நேராக்க / சுழற்ற:</label>
+                    <input type="range" id="rotateSlider" min="-45" max="45" value="0" disabled>
+                </div>
+                <div class="control-group">
+                    <label>வண்ண முறை (Color Mode):</label>
+                    <select id="colorMode">
+                        <option value="none">வண்ணப்படம் (Color)</option>
+                        <option value="grayscale(100%)">கருப்பு வெள்ளை (B&W)</option>
+                    </select>
+                </div>
+                <div class="control-group">
+                    <label>பின்னணி நிறம் (Background):</label>
+                    <input type="color" id="bgColor" value="#ffffff">
+                </div>
+                <div class="control-group" id="borderColorGroup">
+                    <label>பார்டர் நிறம் (Border Color):</label>
+                    <input type="color" id="borderColor" value="#000000">
+                </div>
+                <div class="control-group">
+                    <label>பார்டர் தடிமன் (Border Width): <span id="borderWidthLabel">0px</span></label>
+                    <input type="range" id="borderWidth" min="0" max="20" value="0" step="1">
+                </div>
+                <div class="control-group" style="grid-column: 1 / -1;">
+                    <label>பார்டர் கலர் முறை (Border Color Type):</label>
+                    <div style="display:flex; gap:20px; align-items:center; flex-wrap:wrap;">
+                        <label style="font-weight:normal; display:flex; align-items:center; gap:5px;">
+                            <input type="radio" name="borderMode" value="same" checked> எல்லா போட்டோவிற்கும் ஒரே கலர்
+                        </label>
+                        <label style="font-weight:normal; display:flex; align-items:center; gap:5px;">
+                            <input type="radio" name="borderMode" value="different"> ஒவ்வொரு போட்டோவிற்கும் வெவ்வேறு கலர்
+                        </label>
+                    </div>
+                    <div id="individualBorderPanel" style="display:none; gap:12px; flex-wrap:wrap; margin-top:10px; background:#eef2f7; padding:10px; border-radius:6px;">
+                        <!-- இடங்கள் 1 முதல் 8 வரை தனித்தனி பார்டர் கலர் -->
+                    </div>
+                </div>
+            </div>
+
+            <div class="crop-wrapper">
+                <img id="image-to-crop" src="" alt="எடிட் செய்ய வேண்டிய படம்">
+            </div>
+
+            <div class="template-buttons">
+                <button class="btn btn-success" id="btnCropAll">8 இடங்களிலும் இதே போட்டோ</button>
+                <button class="btn" id="btnCrop14">முதல் 4 இடங்கள் (1 - 4)</button>
+                <button class="btn" id="btnCrop58">அடுத்த 4 இடங்கள் (5 - 8)</button>
+                <button class="btn" id="btnCrop12">இடங்கள் 1 - 2</button>
+                <button class="btn" id="btnCrop34">இடங்கள் 3 - 4</button>
+                <button class="btn" id="btnCrop56">இடங்கள் 5 - 6</button>
+                <button class="btn" id="btnCrop78">இடங்கள் 7 - 8</button>
+                <button class="btn btn-danger" onclick="clearLayout()">அனைத்தையும் அழி</button>
+            </div>
+        </div>
+
+        <div class="preview-section">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <h3 style="margin:0;">2. 6x4 சீட் அச்சு பிரிவியூ (Print Preview)</h3>
+                <div style="display:flex; gap:10px;">
+                    <button class="btn" style="font-size: 16px; padding: 10px 20px;" onclick="downloadSheet()">📥 போட்டோ டவுன்லோட் (PNG)</button>
+                    <button class="btn btn-success" style="font-size: 16px; padding: 10px 25px;" onclick="window.print()">Print செய்ய கிளிக் செய்யவும்</button>
+                </div>
+            </div>
+            
+            <div class="canvas-scroll-box">
+                <canvas id="finalCanvas" width="1800" height="1200"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.js"></script>
+    <script>
+        let cropper = null;
+        const uploadFile = document.getElementById('uploadFile');
+        const imageToCrop = document.getElementById('image-to-crop');
+        const rotateSlider = document.getElementById('rotateSlider');
+        const colorMode = document.getElementById('colorMode');
+        const bgColorInput = document.getElementById('bgColor');
+        const borderColorInput = document.getElementById('borderColor');
+        const borderColorGroup = document.getElementById('borderColorGroup');
+        const borderWidthInput = document.getElementById('borderWidth');
+        const borderWidthLabel = document.getElementById('borderWidthLabel');
+        const individualBorderPanel = document.getElementById('individualBorderPanel');
+        const canvas = document.getElementById('finalCanvas');
+        const ctx = canvas.getContext('2d');
+
+        let borderMode = 'same'; // 'same' அல்லது 'different'
+
+        // இடங்கள் 1 முதல் 8 வரை தனித்தனி பார்டர் கலர் பிக்கர்களை உருவாக்குதல்
+        for (let s = 0; s < 8; s++) {
+            const wrap = document.createElement('div');
+            wrap.style.cssText = 'display:flex; flex-direction:column; align-items:center; gap:3px; font-size:12px; font-weight:bold;';
+            wrap.innerHTML = `இடம் ${s + 1}<input type="color" id="borderColorSlot${s}" value="#000000">`;
+            individualBorderPanel.appendChild(wrap);
+        }
+
+        // பார்டர் முறை (Same / Different) மாற்றும்போது
+        document.querySelectorAll('input[name="borderMode"]').forEach((radio) => {
+            radio.addEventListener('change', (e) => {
+                borderMode = e.target.value;
+                if (borderMode === 'different') {
+                    individualBorderPanel.style.display = 'flex';
+                    borderColorGroup.style.display = 'none';
+                } else {
+                    individualBorderPanel.style.display = 'none';
+                    borderColorGroup.style.display = 'flex';
+                }
+            });
+        });
+
+        // தற்போதைய முறைப்படி, குறிப்பிட்ட ஸ்லாட்டுக்கான பார்டர் கலரைப் பெறுதல்
+        function getBorderColorForSlot(idx) {
+            if (borderMode === 'different') {
+                return document.getElementById('borderColorSlot' + idx).value;
+            }
+            return borderColorInput.value;
+        }
+
+        // 8 போட்டோக்களுக்கான மெமரி லேயவுட்
+        let photoSlots = Array(8).fill(null);
+
+        // ஆரம்பத்தில் வெற்று 6x4 லேயவுட் வரைதல்
+        initCanvas();
+
+        uploadFile.onchange = (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                if (cropper) {
+                    cropper.destroy();
+                }
+                imageToCrop.src = event.target.result;
+                
+                // பாஸ்போர்ட் போட்டோவிற்கான துல்லியமான விகிதம் 3.5 : 4.5
+                cropper = new Cropper(imageToCrop, {
+                    aspectRatio: 3.5 / 4.5,
+                    viewMode: 1,
+                    background: true,
+                    autoCropArea: 1
+                });
+                
+                rotateSlider.disabled = false;
+                rotateSlider.value = 0;
+            };
+            reader.readAsDataURL(file);
+        };
+
+        // ஸ்லைடர் மூலம் படத்தை நேராக்குதல் / சுழற்றுதல்
+        rotateSlider.oninput = () => {
+            if (cropper) {
+                cropper.rotateTo(rotateSlider.value);
+            }
+        };
+
+        // பார்டர் தடிமன் லேபிளை நேரலையில் புதுப்பித்தல்
+        borderWidthInput.oninput = () => {
+            borderWidthLabel.textContent = borderWidthInput.value + 'px';
+        };
+
+        // லேயவுட்டைத் தயார் செய்தல் (Blank Sheet)
+        function initCanvas() {
+            ctx.fillStyle = "#ffffff";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.strokeStyle = "#cccccc";
+            ctx.lineWidth = 2;
+            
+            // 8 கட்டங்களை வரைதல்
+            for (let i = 0; i < 8; i++) {
+                let x = (i % 4) * 450;
+                let y = (i < 4) ? 0 : 600;
+                ctx.strokeRect(x, y, 450, 600);
+            }
+        }
+
+        // தேர்ந்தெடுக்கப்பட்ட ஸ்லாட்டுகளில் படத்தை அமர்த்துதல்
+        function addPhotoToSlots(startIdx, endIdx) {
+            if (!cropper) {
+                alert("தயவுசெய்து முதலில் ஒரு புகைப்படத்தை அப்லோட் செய்யவும்!");
+                return;
+            }
+
+            // எடிட் செய்யப்பட்ட படத்தை கேன்வாஸாக மாற்றுதல்
+            const croppedCanvas = cropper.getCroppedCanvas({
+                width: 400,
+                height: 514
+            });
+
+            const imgDataUrl = croppedCanvas.toDataURL();
+            const filterValue = colorMode.value;
+            const bgCol = bgColorInput.value;
+            const borderW = parseInt(borderWidthInput.value, 10);
+
+            const imgObj = new Image();
+            imgObj.onload = () => {
+                for (let i = startIdx; i <= endIdx; i++) {
+                    photoSlots[i] = {
+                        img: imgObj,
+                        filter: filterValue,
+                        bg: bgCol,
+                        borderColor: getBorderColorForSlot(i),
+                        borderWidth: borderW
+                    };
+                }
+                renderFullSheet();
+            };
+            imgObj.src = imgDataUrl;
+        }
+
+        // லேயவுட் பட்டன் செயல்பாடுகள்
+        document.getElementById('btnCropAll').onclick = () => addPhotoToSlots(0, 7);
+        document.getElementById('btnCrop14').onclick = () => addPhotoToSlots(0, 3);
+        document.getElementById('btnCrop58').onclick = () => addPhotoToSlots(4, 7);
+        document.getElementById('btnCrop12').onclick = () => addPhotoToSlots(0, 1);
+        document.getElementById('btnCrop34').onclick = () => addPhotoToSlots(2, 3);
+        document.getElementById('btnCrop56').onclick = () => addPhotoToSlots(4, 5);
+        document.getElementById('btnCrop78').onclick = () => addPhotoToSlots(6, 7);
+
+        // 6x4 ஷீட்டை முழுமையாக வரைதல்
+        function renderFullSheet() {
+            ctx.fillStyle = "#ffffff";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            for (let i = 0; i < 8; i++) {
+                let x = (i % 4) * 450;
+                let y = (i < 4) ? 0 : 600;
+
+                if (photoSlots[i]) {
+                    // ஸ்லாட் பின்னணி நிறம்
+                    ctx.fillStyle = photoSlots[i].bg;
+                    ctx.fillRect(x, y, 450, 600);
+
+                    // பார்டர் பிரேம் - திடமான (solid) நிற பட்டையாக, படத்திற்கு முன்பே வரையப்படுகிறது
+                    // (stroke கோடு அல்ல, fillRect ஆதலால் பிரிண்ட்/PDF-ல் நிச்சயம் தெரியும்)
+                    const bw = photoSlots[i].borderWidth || 0;
+                    if (bw > 0) {
+                        ctx.fillStyle = photoSlots[i].borderColor || '#000000';
+                        ctx.fillRect(x + 25 - bw, y + 43 - bw, 400 + bw * 2, 514 + bw * 2);
+                    }
+
+                    // பில்டர் அமைத்தல் (Color / BW)
+                    ctx.filter = photoSlots[i].filter;
+                    
+                    // துல்லியமான பாஸ்போர்ட் அளவில் படத்தை வரைதல் (பிரேமுக்கு மேல்)
+                    ctx.drawImage(photoSlots[i].img, x + 25, y + 43, 400, 514);
+                    
+                    // பில்டரை ரீசெட் செய்தல்
+                    ctx.filter = 'none';
+                }
+
+                // அச்சுக்கான மெல்லிய வெட்டு பார்டர் (Cutting Guide)
+                ctx.strokeStyle = "#e0e0e0";
+                ctx.lineWidth = 1;
+                ctx.strokeRect(x, y, 450, 600);
+            }
+        }
+
+        // லேயவுட்டை க்ளியர் செய்ய
+        function clearLayout() {
+            photoSlots = Array(8).fill(null);
+            initCanvas();
+        }
+
+        // 6x4 சீட்டை PNG ஆக டவுன்லோட் செய்ய (பாஸ்போர்ட் ஸ்டூடியோவில் அச்சிட)
+        function downloadSheet() {
+            canvas.toBlob((blob) => {
+                const link = document.createElement('a');
+                const dateStr = new Date().toISOString().slice(0, 10);
+                link.download = 'dhass_passport_6x4_' + dateStr + '.png';
+                link.href = URL.createObjectURL(blob);
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(link.href);
+            }, 'image/png');
+        }
+    </script>
+</body>
+</html>
